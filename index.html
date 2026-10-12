@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1877f2">
+<title>Mini Facebook</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f0f2f5;
+  color:#1c1e21
+}
+header{
+  background:#1877f2;
+  color:white;
+  padding:15px;
+  position:sticky;
+  top:0;
+  z-index:5;
+  box-shadow:0 2px 5px #0002
+}
+.top{
+  max-width:650px;
+  margin:auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px
+}
+.logo{font-size:23px;font-weight:bold}
+button{
+  cursor:pointer;
+  border:0;
+  border-radius:8px;
+  padding:10px 14px;
+  font-size:15px
+}
+main{max-width:600px;margin:20px auto;padding:0 12px}
+.card{
+  background:white;
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 1px 3px #0001
+}
+h3{margin:0 0 12px}
+input,textarea{
+  width:100%;
+  border:1px solid #dddfe2;
+  border-radius:10px;
+  padding:12px;
+  font:inherit;
+  margin:6px 0
+}
+textarea{min-height:85px;resize:vertical}
+.primary{background:#1877f2;color:white;font-weight:bold}
+.secondary{background:#e7f3ff;color:#1877f2}
+.post-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.avatar{
+  background:#dbeafe;
+  color:#1877f2;
+  width:42px;height:42px;
+  border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:bold;font-size:18px
+}
+.name{font-weight:bold}
+.time{font-size:12px;color:#65676b;margin-top:4px}
+.post-text{white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;margin-top:14px;border-top:1px solid #eee;padding-top:10px}
+.actions button{flex:1;background:#f0f2f5;color:#444;font-weight:bold}
+.actions button.liked{color:#1877f2;background:#e7f3ff}
+.comments{margin-top:12px}
+.comment{background:#f0f2f5;border-radius:12px;padding:10px;margin-top:8px;overflow-wrap:anywhere}
+.small{font-size:13px;color:#65676b}
+footer{text-align:center;padding:20px;color:#65676b;font-size:13px}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="top">
+    <div class="logo">f Mini Facebook</div>
+    <button class="secondary" id="profileButton">My Profile</button>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="profile" hidden>
+    <h3>Your profile</h3>
+    <label for="displayName">Your display name</label>
+    <input id="displayName" maxlength="40" placeholder="Enter your name">
+    <button class="primary" id="saveProfile">Save profile</button>
+    <button id="closeProfile">Close</button>
+    <p class="small">This demo saves your name only in this browser.</p>
+  </section>
+
+  <section class="card">
+    <h3>What's on your mind?</h3>
+    <form id="postForm">
+      <textarea id="postInput" maxlength="2000"
+        placeholder="Share something with everyone..." required></textarea>
+      <button class="primary" type="submit">Publish post</button>
+    </form>
+  </section>
+
+  <div id="feed" aria-live="polite"></div>
+  <footer>Mini Facebook · A community starter project</footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function load(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+let profile = load("mf-profile", "Guest");
+let posts = load("mf-posts", [
+  {
+    id: 1,
+    author: "Mini Facebook",
+    text: "Welcome! 🎉 This is your new community. Share your thoughts and say hello!",
+    likes: [],
+    comments: []
+  }
+]);
+
+function save() {
+  try {
+    localStorage.setItem("mf-profile", JSON.stringify(profile));
+    localStorage.setItem("mf-posts", JSON.stringify(posts));
+  } catch {
+    alert("Your browser could not save the changes.");
+  }
+}
+
+function element(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function render() {
+  const feed = $("feed");
+  feed.replaceChildren();
+
+  [...posts].reverse().forEach(post => {
+    const card = element("article", "card");
+    const head = element("div", "post-head");
+    head.append(element("div", "avatar",
+      (post.author || "G").charAt(0).toUpperCase()));
+
+    const details = document.createElement("div");
+    details.append(element("div", "name", post.author || "Guest"));
+    details.append(element("div", "time", "Community post"));
+    head.append(details);
+    card.append(head);
+
+    card.append(element("div", "post-text", post.text));
+
+    const count = element("div", "small",
+      `${post.likes.length} likes · ${post.comments.length} comments`);
+    count.style.marginTop = "12px";
+    card.append(count);
+
+    const actions = element("div", "actions");
+    const like = element("button", "",
+      post.likes.includes(profile) ? "♥ Liked" : "♡ Like");
+    if (post.likes.includes(profile)) like.classList.add("liked");
+
+    like.addEventListener("click", () => {
+      if (post.likes.includes(profile)) {
+        post.likes = post.likes.filter(name => name !== profile);
+      } else {
+        post.likes.push(profile);
+      }
+      save();
+      render();
+    });
+
+    const commentButton = element("button", "", "💬 Comment");
+    actions.append(like, commentButton);
+    card.append(actions);
+
+    const comments = element("div", "comments");
+    post.comments.forEach(comment => {
+      const bubble = element("div", "comment");
+      bubble.append(element("strong", "", comment.author + ": "));
+      bubble.append(document.createTextNode(comment.text));
+      comments.append(bubble);
+    });
+
+    const form = document.createElement("form");
+    form.style.display = "flex";
+    form.style.gap = "6px";
+    form.style.marginTop = "10px";
+
+    const input = document.createElement("input");
+    input.placeholder = "Write a comment...";
+    input.maxLength = 500;
+    input.setAttribute("aria-label", "Write a comment");
+    input.required = true;
+
+    const send = element("button", "primary", "Send");
+    send.type = "submit";
+    form.append(input, send);
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      post.comments.push({author: profile, text});
+      save();
+      render();
+    });
+
+    commentButton.addEventListener("click", () => {
+      input.focus();
+    });
+
+    comments.append(form);
+    card.append(comments);
+    feed.append(card);
+  });
+}
+
+$("postForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const text = $("postInput").value.trim();
+  if (!text) return;
+
+  posts.push({
+    id: Date.now(),
+    author: profile,
+    text,
+    likes: [],
+    comments: []
+  });
+
+  save();
+  $("postInput").value = "";
+  render();
+});
+
+$("profileButton").addEventListener("click", () => {
+  $("profile").hidden = !$("profile").hidden;
+  $("displayName").value = profile === "Guest" ? "" : profile;
+});
+
+$("closeProfile").addEventListener("click", () => {
+  $("profile").hidden = true;
+});
+
+$("saveProfile").addEventListener("click", () => {
+  const name = $("displayName").value.trim();
+  if (!name) {
+    alert("Please enter your display name.");
+    return;
+  }
+  profile = name;
+  save();
+  $("profile").hidden = true;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
